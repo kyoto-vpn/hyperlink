@@ -174,107 +174,130 @@
   </div>
 
   <script>
-    (function () {
-      const i18n = {
-        en: {
-          pageTitle: "Opening App...",
-          defaultTitle: "Opening Application",
-          desc: "Launching external client. Tap the button below if nothing happens automatically.",
-          openDefault: "Open App",
-          openScheme: (s) => `Open ${s}`,
-          copyBtn: "Copy Link",
-          copied: "Copied to Clipboard!",
-          copyFailed: "Copy Failed",
-          missingTitle: "Missing Link",
-          missingDesc: "No application protocol was supplied in the URL.",
-          invalidTitle: "Invalid Protocol",
-          invalidDesc: "Execution of this protocol format is blocked for security."
-        },
-        ru: {
-          pageTitle: "Открытие приложения...",
-          defaultTitle: "Открытие приложения",
-          desc: "Запуск внешнего клиента. Нажмите кнопку ниже, если открытие не произошло автоматически.",
-          openDefault: "Открыть приложение",
-          openScheme: (s) => `Открыть ${s}`,
-          copyBtn: "Скопировать ссылку",
-          copied: "Скопировано в буфер!",
-          copyFailed: "Не удалось скопировать",
-          missingTitle: "Ссылка не найдена",
-          missingDesc: "В URL-адресе не указан протокол приложения.",
-          invalidTitle: "Недопустимый протокол",
-          invalidDesc: "Запуск данного протокола заблокирован в целях безопасности."
-        }
-      };
+  (function () {
+    const i18n = {
+      en: {
+        pageTitle: "Opening App...",
+        defaultTitle: "Opening Application",
+        desc: "Launching external client. Tap the button below if nothing happens automatically.",
+        openDefault: "Open App",
+        openScheme: (s) => `Open ${s}`,
+        copyBtn: "Copy Link",
+        copied: "Copied to Clipboard!",
+        copyFailed: "Copy Failed",
+        missingTitle: "Missing Link",
+        missingDesc: "No application protocol was supplied in the URL.",
+        invalidTitle: "Invalid Protocol",
+        invalidDesc: "Execution of this protocol format is blocked for security."
+      },
+      ru: {
+        pageTitle: "Открытие приложения...",
+        defaultTitle: "Открытие приложения",
+        desc: "Запуск внешнего клиента. Нажмите кнопку ниже, если открытие не произошло автоматически.",
+        openDefault: "Открыть приложение",
+        openScheme: (s) => `Открыть ${s}`,
+        copyBtn: "Скопировать ссылку",
+        copied: "Скопировано в буфер!",
+        copyFailed: "Не удалось скопировать",
+        missingTitle: "Ссылка не найдена",
+        missingDesc: "В URL-адресе не указан протокол приложения.",
+        invalidTitle: "Недопустимый протокол",
+        invalidDesc: "Запуск данного протокола заблокирован в целях безопасности."
+      }
+    };
+
+    const userLang = (navigator.languages && navigator.languages.length)
+      ? navigator.languages[0]
+      : (navigator.language || navigator.userLanguage || "en");
+    const lang = userLang.toLowerCase().startsWith("ru") ? "ru" : "en";
+    const t = i18n[lang];
+
+    document.documentElement.lang = lang;
+    document.title = t.pageTitle;
+
+    const card = document.getElementById('card');
+    const title = document.getElementById('title');
+    const desc = document.getElementById('description');
+    const launchBtn = document.getElementById('launch-btn');
+    const copyBtn = document.getElementById('copy-btn');
+    const statusIcon = document.getElementById('status-icon');
+
+    title.textContent = t.defaultTitle;
+    desc.textContent = t.desc;
+    launchBtn.textContent = t.openDefault;
+    copyBtn.textContent = t.copyBtn;
+
+    const rawHash = window.location.hash.substring(1);
+
+    if (!rawHash) {
+      showError(t.missingTitle, t.missingDesc);
+      return;
+    }
+
+    function parsePayload(input) {
+      let decoded = decodeURIComponent(input).trim();
       
-      const userLang = (navigator.languages && navigator.languages.length)
-        ? navigator.languages[0]
-        : (navigator.language || navigator.userLanguage || "en");
-      const lang = userLang.toLowerCase().startsWith("ru") ? "ru" : "en";
-      const t = i18n[lang];
-
-      document.documentElement.lang = lang;
-      document.title = t.pageTitle;
-
-      const card = document.getElementById('card');
-      const title = document.getElementById('title');
-      const desc = document.getElementById('description');
-      const launchBtn = document.getElementById('launch-btn');
-      const copyBtn = document.getElementById('copy-btn');
-      const statusIcon = document.getElementById('status-icon');
-
-      title.textContent = t.defaultTitle;
-      desc.textContent = t.desc;
-      launchBtn.textContent = t.openDefault;
-      copyBtn.textContent = t.copyBtn;
-
-      const rawHash = window.location.hash.substring(1);
-
-      if (!rawHash) {
-        showError(t.missingTitle, t.missingDesc);
-        return;
+      if (/^[a-zA-Z0-9+.-]+:\/\//.test(decoded)) {
+        return decoded;
       }
 
-      const targetUri = decodeURIComponent(rawHash).trim();
+      try {
+        let b64 = decoded.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        
+        const bin = atob(b64);
+        const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+        const utf8Decoded = new TextDecoder().decode(bytes).trim();
 
-      if (/^(javascript|data|vbscript):/i.test(targetUri)) {
-        showError(t.invalidTitle, t.invalidDesc);
-        return;
-      }
-
-      launchBtn.href = targetUri;
-
-      const schemeMatch = targetUri.match(/^([a-zA-Z0-9+.-]+):\/\//);
-      if (schemeMatch) {
-        const scheme = schemeMatch[1].toUpperCase();
-        title.textContent = t.openScheme(scheme);
-        launchBtn.textContent = t.openScheme(scheme);
-      }
-
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(targetUri);
-          const original = copyBtn.textContent;
-          copyBtn.textContent = t.copied;
-          setTimeout(() => { copyBtn.textContent = original; }, 1500);
-        } catch (_) {
-          copyBtn.textContent = t.copyFailed;
+        if (/^[a-zA-Z0-9+.-]+:\/\//.test(utf8Decoded)) {
+          return utf8Decoded;
         }
-      });
+      } catch (_) {}
 
-      window.location.replace(targetUri);
+      return decoded;
+    }
 
-      function showError(heading, message) {
-        card.classList.add('error-state');
-        title.textContent = heading;
-        desc.textContent = message;
-        statusIcon.innerHTML = `
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        `;
-        copyBtn.style.display = 'none';
+    const targetUri = parsePayload(rawHash);
+
+    if (/^(javascript|data|vbscript):/i.test(targetUri)) {
+      showError(t.invalidTitle, t.invalidDesc);
+      return;
+    }
+
+    launchBtn.href = targetUri;
+
+    const schemeMatch = targetUri.match(/^([a-zA-Z0-9+.-]+):\/\//);
+    if (schemeMatch) {
+      const scheme = schemeMatch[1].toUpperCase();
+      title.textContent = t.openScheme(scheme);
+      launchBtn.textContent = t.openScheme(scheme);
+    }
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(targetUri);
+        const original = copyBtn.textContent;
+        copyBtn.textContent = t.copied;
+        setTimeout(() => { copyBtn.textContent = original; }, 1500);
+      } catch (_) {
+        copyBtn.textContent = t.copyFailed;
       }
-    })();
-  </script>
+    });
+
+    window.location.replace(targetUri);
+
+    function showError(heading, message) {
+      card.classList.add('error-state');
+      title.textContent = heading;
+      desc.textContent = message;
+      statusIcon.innerHTML = `
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      `;
+      copyBtn.style.display = 'none';
+    }
+  })();
+</script>
 </body>
 </html>
